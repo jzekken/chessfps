@@ -10,6 +10,9 @@ let main = {
     playerSide: 'w', // 'w' or 'b'
     history: [], // Stores snapshotted game states
     historyIndex: -1, // Current active state in history
+    activeCombat: null, // Stores target combat info during mini-game
+    fpsTargetInterval: null, // Moving interval for shooter target
+    fpsAnimationId: null, // requestAnimationFrame ID for shooter countdown
     pieces: {
       w_king: {
         position: '5_1',
@@ -253,7 +256,6 @@ let main = {
 
     // Save history snapshot
     saveHistoryState: function() {
-      // Truncate any redo branch if we moved after backing up
       if (main.variables.historyIndex < main.variables.history.length - 1) {
         main.variables.history = main.variables.history.slice(0, main.variables.historyIndex + 1);
       }
@@ -356,6 +358,208 @@ let main = {
       $('#turn').html("CHOOSE A SIDE TO START");
     },
 
+    // 1. Synthesize Retro Gunshot Sound
+    playGunshotSound: function() {
+      try {
+        let AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        let ctx = new AudioContext();
+        
+        let osc = ctx.createOscillator();
+        let gain = ctx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(10, ctx.currentTime + 0.12);
+        
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+        
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } catch(e) {}
+    },
+
+    // 2. Synthesize Target Hit Impact Sound
+    playImpactSound: function() {
+      try {
+        let AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        let ctx = new AudioContext();
+        
+        let osc = ctx.createOscillator();
+        let gain = ctx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(320, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.18);
+        
+        gain.gain.setValueAtTime(0.18, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.18);
+        
+        osc.start();
+        osc.stop(ctx.currentTime + 0.18);
+      } catch(e) {}
+    },
+
+    // 3. Synthesize Failure Sound
+    playFailureSound: function() {
+      try {
+        let AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        let ctx = new AudioContext();
+        
+        let osc = ctx.createOscillator();
+        let gain = ctx.createGain();
+        
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.3);
+        
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        
+        osc.start();
+        osc.stop(ctx.currentTime + 0.3);
+      } catch(e) {}
+    },
+
+    // 4. Start FPS Engagement Mini-game
+    startFPSMiniGame: function(attacker, defender, attackerPos, defenderPos) {
+      main.variables.activeCombat = {
+        attacker: attacker,
+        defender: defender,
+        attackerPos: attackerPos,
+        defenderPos: defenderPos
+      };
+
+      // Set target piece graphic dynamically
+      $('#fps-target').attr('chess', defender);
+
+      // Disable grid click events during active shooter overlay
+      $('.gamecell').off('click');
+
+      // Clear highlights immediately
+      $('.gamecell').removeClass('selected-highlight');
+      main.methods.togglehighlight(main.variables.highlighted);
+
+      // Render overlay
+      $('#fps-overlay').fadeIn(150);
+
+      // Move target instantly to initiate pathing glide
+      main.methods.moveFPSTarget();
+
+      // Begin interval to slide target drone around
+      main.variables.fpsTargetInterval = setInterval(main.methods.moveFPSTarget, 480);
+
+      // 3.00s High resolution countdown via requestAnimationFrame
+      let startTime = performance.now();
+      let duration = 3000; 
+
+      function updateCountdown() {
+        if (!main.variables.activeCombat) return; // Halt if successfully captured already
+        
+        let elapsed = performance.now() - startTime;
+        let remaining = Math.max(0, duration - elapsed);
+        let seconds = (remaining / 1000).toFixed(2);
+        
+        $('#fps-countdown').html(seconds);
+
+        if (remaining <= 0) {
+          // Game Over: Player timed out!
+          main.methods.resolveCombat(false);
+        } else {
+          main.variables.fpsAnimationId = requestAnimationFrame(updateCountdown);
+        }
+      }
+
+      main.variables.fpsAnimationId = requestAnimationFrame(updateCountdown);
+    },
+
+    // Move target randomly inside arena
+    moveFPSTarget: function() {
+      let x = Math.floor(Math.random() * 82); 
+      let y = Math.floor(Math.random() * 78); 
+      $('#fps-target').css({ top: y + '%', left: x + '%' });
+    },
+
+    // Resolve Combat Engagement Outcomes
+    resolveCombat: function(success) {
+      clearInterval(main.variables.fpsTargetInterval);
+      cancelAnimationFrame(main.variables.fpsAnimationId);
+
+      let combat = main.variables.activeCombat;
+      if (!combat) return;
+      main.variables.activeCombat = null;
+
+      $('#fps-overlay').fadeOut(150);
+
+      if (success) {
+        // Success: Attacker captures defender
+        main.methods.playImpactSound();
+        
+        $('#' + combat.defenderPos).html(main.variables.pieces[combat.attacker].img);
+        $('#' + combat.defenderPos).attr('chess', combat.attacker);
+        $('#' + combat.attackerPos).html('');
+        $('#' + combat.attackerPos).attr('chess', 'null');
+        
+        main.variables.pieces[combat.attacker].position = combat.defenderPos;
+        main.variables.pieces[combat.attacker].moved = true;
+        main.variables.pieces[combat.defender].captured = true;
+
+        // Clear defender's actual cell if it's en passant (since defender was not on defenderPos)
+        let isPawn = main.variables.pieces[combat.attacker].type.endsWith('pawn');
+        let from_x = parseInt(combat.attackerPos.split('_')[0]);
+        let to_x = parseInt(combat.defenderPos.split('_')[0]);
+        if (isPawn && from_x !== to_x) {
+          let epPos = to_x + '_' + combat.attackerPos.split('_')[1];
+          $('#' + epPos).html('');
+          $('#' + epPos).attr('chess', 'null');
+        }
+        
+        main.variables.lastDoubleStepPawn = ''; // Clear EP pawn tracking
+      } else {
+        // Failure: Attacker gets eaten by defender!
+        main.methods.playFailureSound();
+        alert('ATTACK FAILED! Your piece got captured in combat.');
+        
+        main.variables.pieces[combat.attacker].captured = true;
+        $('#' + combat.attackerPos).html('');
+        $('#' + combat.attackerPos).attr('chess', 'null');
+      }
+
+      // Re-bind grid click events
+      $('.gamecell').off('click').click(main.methods.handleCellClick);
+      main.variables.selectedpiece = '';
+      main.variables.highlighted = [];
+
+      // Check if King was captured
+      if (main.variables.pieces['w_king'].captured) {
+        $('#turn').html('COMBAT CAPTURE! BLACK WINS!');
+        alert('White King captured in combat! Black wins.');
+        $('.gamecell').off('click');
+        return;
+      }
+      if (main.variables.pieces['b_king'].captured) {
+        $('#turn').html('COMBAT CAPTURE! WHITE WINS!');
+        alert('Black King captured in combat! White wins.');
+        $('.gamecell').off('click');
+        return;
+      }
+
+      // Conclude turn and snapshot state
+      main.methods.endturn();
+    },
+
     // Pseudo-legal moves generation
     getPseudoLegalMoves: function(selectedpiece) {
       let position = { x: '', y: '' };
@@ -369,46 +573,24 @@ let main = {
 
       switch (main.variables.pieces[selectedpiece].type) {
         case 'w_king':
-          if ($('#6_1').attr('chess') == 'null' && $('#7_1').attr('chess') == 'null' && 
-              main.variables.pieces['w_king'].moved == false && 
-              main.variables.pieces['w_rook2'].moved == false &&
-              !main.methods.isKingInCheck('w') &&
-              !main.methods.isSquareUnderAttack('6_1', 'b') &&
-              !main.methods.isSquareUnderAttack('7_1', 'b')) {
-            coordinates = [{ x: 1, y: 1 },{ x: 1, y: 0 },{ x: 1, y: -1 },{ x: 0, y: -1 },{ x: -1, y: -1 },{ x: -1, y: 0 },{ x: -1, y: 1 },{ x: 0, y: 1 },{x: 2, y: 0}].map(function(val){
-              return (parseInt(position.x) + parseInt(val.x)) + '_' + (parseInt(position.y) + parseInt(val.y));
-            });
-          } else {
-            coordinates = [{ x: 1, y: 1 },{ x: 1, y: 0 },{ x: 1, y: -1 },{ x: 0, y: -1 },{ x: -1, y: -1 },{ x: -1, y: 0 },{ x: -1, y: 1 },{ x: 0, y: 1 }].map(function(val){
-              return (parseInt(position.x) + parseInt(val.x)) + '_' + (parseInt(position.y) + parseInt(val.y));
-            });
-          }
+          coordinates = [{ x: 1, y: 1 },{ x: 1, y: 0 },{ x: 1, y: -1 },{ x: 0, y: -1 },{ x: -1, y: -1 },{ x: -1, y: 0 },{ x: -1, y: 1 },{ x: 0, y: 1 }].map(function(val){
+            return (parseInt(position.x) + parseInt(val.x)) + '_' + (parseInt(position.y) + parseInt(val.y));
+          });
           options = main.methods.options(startpoint, coordinates, main.variables.pieces[selectedpiece].type);
           break;
           
         case 'b_king':
-          if ($('#6_8').attr('chess') == 'null' && $('#7_8').attr('chess') == 'null' && 
-              main.variables.pieces['b_king'].moved == false && 
-              main.variables.pieces['b_rook2'].moved == false &&
-              !main.methods.isKingInCheck('b') &&
-              !main.methods.isSquareUnderAttack('6_8', 'w') &&
-              !main.methods.isSquareUnderAttack('7_8', 'w')) {
-            coordinates = [{ x: 1, y: 1 },{ x: 1, y: 0 },{ x: 1, y: -1 },{ x: 0, y: -1 },{ x: -1, y: -1 },{ x: -1, y: 0 },{ x: -1, y: 1 },{ x: 0, y: 1 },{x: 2, y: 0}].map(function(val){
-              return (parseInt(position.x) + parseInt(val.x)) + '_' + (parseInt(position.y) + parseInt(val.y));
-            });
-          } else {
-            coordinates = [{ x: 1, y: 1 },{ x: 1, y: 0 },{ x: 1, y: -1 },{ x: 0, y: -1 },{ x: -1, y: -1 },{ x: -1, y: 0 },{ x: -1, y: 1 },{ x: 0, y: 1 }].map(function(val){
-              return (parseInt(position.x) + parseInt(val.x)) + '_' + (parseInt(position.y) + parseInt(val.y));
-            });
-          }
+          coordinates = [{ x: 1, y: 1 },{ x: 1, y: 0 },{ x: 1, y: -1 },{ x: 0, y: -1 },{ x: -1, y: -1 },{ x: -1, y: 0 },{ x: -1, y: 1 },{ x: 0, y: 1 }].map(function(val){
+            return (parseInt(position.x) + parseInt(val.x)) + '_' + (parseInt(position.y) + parseInt(val.y));
+          });
           options = main.methods.options(startpoint, coordinates, main.variables.pieces[selectedpiece].type);
           break;
 
         case 'w_queen':
           c1 = main.methods.w_options(position,[{x: 1, y: 1},{x: 2, y: 2},{x: 3, y: 3},{x: 4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
           c2 = main.methods.w_options(position,[{x: 1, y: -1},{x: 2, y: -2},{x: 3, y: -3},{x: 4, y: -4},{x: 5, y: -5},{x: 6, y: -6},{x: 7, y: -7}]);
-          c3 = main.methods.w_options(position,[{x: -1, y: 1},{x: -2, y: 2},{x: -3, y: 3},{x: -4, y: 4},{x: -5, y: 5},{x: -6, y: 6},{x: -7, y: 7}]);
-          c4 = main.methods.w_options(position,[{x: -1, y: -1},{x: -2, y: -2},{x: -3, y: -3},{x: -4, y: -4},{x: -5, y: -5},{x: -6, y: -6},{x: -7, y: -7}]);
+          c3 = main.methods.w_options(position,[{x: -1, y: 1},{x: -2, y: 2},{x: -3, y: 3},{x: -4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
+          c4 = main.methods.w_options(position,[{x: -1, y: -1},{x: -2, y: -2},{x: -3, y: -3},{x: -4, y: -4},{x: 5, y: -5},{x: 6, y: -6},{x: 7, y: -7}]);
           c5 = main.methods.w_options(position,[{x: 1, y: 0},{x: 2, y: 0},{x: 3, y: 0},{x: 4, y: 0},{x: 5, y: 0},{x: 6, y: 0},{x: 7, y: 0}]);
           c6 = main.methods.w_options(position,[{x: 0, y: 1},{x: 0, y: 2},{x: 0, y: 3},{x: 0, y: 4},{x: 0, y: 5},{x: 0, y: 6},{x: 0, y: 7}]);
           c7 = main.methods.w_options(position,[{x: -1, y: 0},{x: -2, y: 0},{x: -3, y: 0},{x: -4, y: 0},{x: -5, y: 0},{x: -6, y: 0},{x: -7, y: 0}]);
@@ -420,7 +602,7 @@ let main = {
           c1 = main.methods.b_options(position,[{x: 1, y: 1},{x: 2, y: 2},{x: 3, y: 3},{x: 4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
           c2 = main.methods.b_options(position,[{x: 1, y: -1},{x: 2, y: -2},{x: 3, y: -3},{x: 4, y: -4},{x: 5, y: -5},{x: 6, y: -6},{x: 7, y: -7}]);
           c3 = main.methods.b_options(position,[{x: -1, y: 1},{x: -2, y: 2},{x: -3, y: 3},{x: -4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
-          c4 = main.methods.b_options(position,[{x: -1, y: -1},{x: -2, y: -2},{x: -3, y: -3},{x: -4, y: -4},{x: -5, y: -5},{x: -6, y: -6},{x: -7, y: -7}]);
+          c4 = main.methods.b_options(position,[{x: -1, y: -1},{x: -2, y: -2},{x: -3, y: -3},{x: -4, y: -4},{x: 5, y: -5},{x: 6, y: -6},{x: 7, y: -7}]);
           c5 = main.methods.b_options(position,[{x: 1, y: 0},{x: 2, y: 0},{x: 3, y: 0},{x: 4, y: 0},{x: 5, y: 0},{x: 6, y: 0},{x: 7, y: 0}]);
           c6 = main.methods.b_options(position,[{x: 0, y: 1},{x: 0, y: 2},{x: 0, y: 3},{x: 0, y: 4},{x: 0, y: 5},{x: 0, y: 6},{x: 0, y: 7}]);
           c7 = main.methods.b_options(position,[{x: -1, y: 0},{x: -2, y: 0},{x: -3, y: 0},{x: -4, y: 0},{x: -5, y: 0},{x: -6, y: 0},{x: -7, y: 0}]);
@@ -571,7 +753,6 @@ let main = {
       return false;
     },
 
-    // Legal moves validator (simulates and checks for check safety)
     getLegalMoves: function(selectedpiece) {
       let pseudoMoves = main.methods.getPseudoLegalMoves(selectedpiece);
       let legalMoves = [];
@@ -636,6 +817,27 @@ let main = {
           legalMoves.push(targetId);
         }
       });
+
+      // Check castling legality manually to prevent infinite recursion
+      if (main.variables.pieces[selectedpiece].type === 'w_king') {
+        if ($('#6_1').attr('chess') == 'null' && $('#7_1').attr('chess') == 'null' && 
+            main.variables.pieces['w_king'].moved == false && 
+            main.variables.pieces['w_rook2'].moved == false &&
+            !main.methods.isKingInCheck('w') &&
+            !main.methods.isSquareUnderAttack('6_1', 'b') &&
+            !main.methods.isSquareUnderAttack('7_1', 'b')) {
+          legalMoves.push('7_1');
+        }
+      } else if (main.variables.pieces[selectedpiece].type === 'b_king') {
+        if ($('#6_8').attr('chess') == 'null' && $('#7_8').attr('chess') == 'null' && 
+            main.variables.pieces['b_king'].moved == false && 
+            main.variables.pieces['b_rook2'].moved == false &&
+            !main.methods.isKingInCheck('b') &&
+            !main.methods.isSquareUnderAttack('6_8', 'w') &&
+            !main.methods.isSquareUnderAttack('7_8', 'w')) {
+          legalMoves.push('7_8');
+        }
+      }
 
       return legalMoves;
     },
@@ -832,17 +1034,6 @@ let main = {
 
       let isPawn = main.variables.pieces[selectedpiece].type.endsWith('pawn');
 
-      // Execute en passant capture if pawn moved diagonally to empty square
-      if (isPawn && from_x !== to_x) {
-        let epPos = to_x + '_' + from_y;
-        let epPawnName = $('#' + epPos).attr('chess');
-        if (epPawnName && epPawnName !== 'null') {
-          main.variables.pieces[epPawnName].captured = true;
-          $('#' + epPos).html('');
-          $('#' + epPos).attr('chess', 'null');
-        }
-      }
-
       // Execute normal movement
       $('#' + target.id).html(main.variables.pieces[selectedpiece].img);
       $('#' + target.id).attr('chess', selectedpiece);
@@ -935,10 +1126,26 @@ let main = {
         $('#' + clickedId).addClass('selected-highlight');
         main.methods.moveoptions(target.name);
 
-      // 3. MOVE TO EMPTY CELL
+      // 3. MOVE TO EMPTY CELL (Detect En Passant Captures!)
       } else if (main.variables.selectedpiece !='' && target.name == 'null') {
         if (main.variables.highlighted.indexOf(target.id) != (-1)) {
-          if (selectedpiece.name == 'w_king' || selectedpiece.name == 'b_king') {
+          
+          let isPawn = main.variables.pieces[selectedpiece.name].type.endsWith('pawn');
+          let from_x = parseInt(selectedpiece.id.split('_')[0]);
+          let to_x = parseInt(target.id.split('_')[0]);
+          
+          if (isPawn && from_x !== to_x) {
+            // En Passant Capture engagement!
+            let epPos = to_x + '_' + selectedpiece.id.split('_')[1];
+            let epPawnName = $('#' + epPos).attr('chess');
+            
+            main.methods.startFPSMiniGame(
+              selectedpiece.name,
+              epPawnName,
+              selectedpiece.id,
+              target.id
+            );
+          } else if (selectedpiece.name == 'w_king' || selectedpiece.name == 'b_king') {
             let t0 = (selectedpiece.name == 'w_king');
             let t1 = (selectedpiece.name == 'b_king');
             let t2 = (main.variables.pieces[selectedpiece.name].moved == false);
@@ -1010,12 +1217,18 @@ let main = {
           main.variables.selectedpiece = '';
         }
           
-      // 4. CAPTURE PIECE
+      // 4. CAPTURE PIECE (Triggers Shooter Mini-game!)
       } else if (main.variables.selectedpiece !='' && target.name != 'null' && target.id != selectedpiece.id && selectedpiece.name.slice(0,1) != target.name.slice(0,1)) {
         if (selectedpiece.id != target.id && main.variables.highlighted.indexOf(target.id) != (-1)) {
-          main.methods.capture(target);
-          $('.gamecell').removeClass('selected-highlight');
-          main.methods.endturn();
+          
+          // Pause and load FPS overlays!
+          main.methods.startFPSMiniGame(
+            selectedpiece.name,
+            target.name,
+            selectedpiece.id,
+            target.id
+          );
+
         } else { // Clicked invalid capture -> Deselect
           $('.gamecell').removeClass('selected-highlight');
           main.methods.togglehighlight(main.variables.highlighted);
@@ -1063,6 +1276,30 @@ $(document).ready(function() {
 
   $('#btn-restart').click(function() {
     main.methods.restartGame();
+  });
+
+  // FPS Combat Arena actions
+  $('#fps-arena').click(function(e) {
+    main.methods.playGunshotSound();
+    
+    // Muzzle flash pop
+    $('#fps-overlay').css('background-color', 'rgba(255, 255, 255, 0.9)');
+    setTimeout(function() {
+      $('#fps-overlay').css('background-color', 'rgba(48, 46, 43, 0.97)');
+    }, 45);
+  });
+
+  // Target Hit handler
+  $('#fps-target').click(function(e) {
+    e.stopPropagation(); // Avoid double gunshot sound
+    
+    main.methods.playGunshotSound();
+    
+    // Impact red flash feedback
+    $('#fps-overlay').css('background-color', 'rgba(239, 68, 68, 0.45)');
+    setTimeout(function() {
+      main.methods.resolveCombat(true);
+    }, 80);
   });
 
   $('body').contextmenu(function(e) {

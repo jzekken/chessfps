@@ -1,4 +1,4 @@
-/* Clean Classic Chess Theme (Chess.com Aesthetic) */
+/* Clean Classic Chess Theme (Chess.com Aesthetic) + FPS Twist */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
 html,
@@ -54,21 +54,21 @@ div * {
   transform: rotate(180deg);
 }
 
-/* Pre-match Selection Overlay */
+/* Overlays (Choose-Side & FPS Combat) */
 .overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(48, 46, 43, 0.96);
+  background: rgba(48, 46, 43, 0.97);
   z-index: 100;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   padding: 20px;
-  transition: opacity 0.3s ease;
+  transition: background-color 0.05s ease;
 }
 
 .overlay h2 {
@@ -107,6 +107,79 @@ div * {
 
 .side-btn:active {
   transform: translateY(0);
+}
+
+/* FPS Game HUD & Arena Styles */
+.fps-hud {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid rgba(239, 68, 68, 0.4);
+  padding-bottom: 10px;
+  margin-bottom: 15px;
+  z-index: 10;
+}
+
+.fps-title {
+  font-family: 'Space Grotesk', sans-serif;
+  color: #ef4444; /* Alert red */
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+
+.fps-timer {
+  font-family: 'Space Grotesk', sans-serif;
+  color: #eeeed2;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+#fps-countdown {
+  color: #ef4444;
+  font-size: 16px;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
+}
+
+#fps-arena {
+  width: 100%;
+  height: 280px;
+  background: rgba(20, 10, 10, 0.85);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  cursor: crosshair;
+}
+
+.target-piece {
+  width: 54px;
+  height: 54px;
+  position: absolute;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 85% 85%;
+  cursor: crosshair;
+  border: 2px solid #ef4444;
+  border-radius: 50%;
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+  background-color: rgba(239, 68, 68, 0.1);
+  
+  /* GLIDE INTERPOLATION FOR NATURAL SMOOTH FLIGHT */
+  transition: top 0.45s cubic-bezier(0.4, 0, 0.2, 1), left 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.fps-hud-bottom {
+  margin-top: 15px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  color: #797672;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  z-index: 10;
 }
 
 /* Control Buttons bar */
@@ -241,20 +314,20 @@ div * {
   z-index: 5;
 }
 
-/* SVG Piece mappings (Wikipedia clean vectors) */
-.gamecell[chess^="w_pawn"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg'); }
-.gamecell[chess^="w_rook"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg'); }
-.gamecell[chess^="w_knight"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg'); }
-.gamecell[chess^="w_bishop"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg'); }
-.gamecell[chess^="w_queen"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg'); }
-.gamecell[chess^="w_king"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg'); }
+/* SVG Piece mappings (Wikipedia clean vectors) - Shared with Target Drones */
+.gamecell[chess^="w_pawn"], .target-piece[chess^="w_pawn"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg'); }
+.gamecell[chess^="w_rook"], .target-piece[chess^="w_rook"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg'); }
+.gamecell[chess^="w_knight"], .target-piece[chess^="w_knight"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg'); }
+.gamecell[chess^="w_bishop"], .target-piece[chess^="w_bishop"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg'); }
+.gamecell[chess^="w_queen"], .target-piece[chess^="w_queen"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg'); }
+.gamecell[chess^="w_king"], .target-piece[chess^="w_king"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg'); }
 
-.gamecell[chess^="b_pawn"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg'); }
-.gamecell[chess^="b_rook"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg'); }
-.gamecell[chess^="b_knight"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg'); }
-.gamecell[chess^="b_bishop"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg'); }
-.gamecell[chess^="b_queen"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg'); }
-.gamecell[chess^="b_king"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg'); }
+.gamecell[chess^="b_pawn"], .target-piece[chess^="b_pawn"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg'); }
+.gamecell[chess^="b_rook"], .target-piece[chess^="b_rook"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg'); }
+.gamecell[chess^="b_knight"], .target-piece[chess^="b_knight"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg'); }
+.gamecell[chess^="b_bishop"], .target-piece[chess^="b_bishop"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg'); }
+.gamecell[chess^="b_queen"], .target-piece[chess^="b_queen"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg'); }
+.gamecell[chess^="b_king"], .target-piece[chess^="b_king"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg'); }
 
 /* Clean Classic Status Turn Banner */
 #turn {
