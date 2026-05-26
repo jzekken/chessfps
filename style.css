@@ -34,6 +34,118 @@ div * {
   border-radius: 4px;
   overflow: hidden;
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Board Flipping for Black's perspective */
+#game.flipped {
+  transform: rotate(180deg);
+}
+
+#game.flipped .gamecell {
+  transform: rotate(180deg);
+}
+
+#game.flipped .cellprefix {
+  transform: rotate(180deg);
+}
+
+#game.flipped .overlay {
+  transform: rotate(180deg);
+}
+
+/* Pre-match Selection Overlay */
+.overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(48, 46, 43, 0.96);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  transition: opacity 0.3s ease;
+}
+
+.overlay h2 {
+  font-family: 'Space Grotesk', sans-serif;
+  color: #eeeed2;
+  margin-bottom: 25px;
+  font-size: 20px;
+  letter-spacing: 2px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.side-options {
+  display: flex;
+  gap: 12px;
+}
+
+.side-btn {
+  padding: 12px 22px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  color: #eeeed2;
+  background: #769656;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.25);
+  transition: all 0.2s ease;
+}
+
+.side-btn:hover {
+  background: #95bb72;
+  transform: translateY(-2px);
+}
+
+.side-btn:active {
+  transform: translateY(0);
+}
+
+/* Control Buttons bar */
+#controls {
+  display: flex;
+  justify-content: space-between;
+  max-width: 450px;
+  width: 100%;
+  margin-top: 15px;
+  gap: 10px;
+}
+
+.control-btn {
+  flex: 1;
+  padding: 10px;
+  font-family: 'Space Grotesk', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: #bababa;
+  background: #262421;
+  border: 1px solid #3d3b38;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+.control-btn:hover:not(:disabled) {
+  background: #363431;
+  color: #ffffff;
+  border-color: #4a4845;
+}
+
+.control-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  box-shadow: none;
 }
 
 /* Grid Coordinates / Labels */

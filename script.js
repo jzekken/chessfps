@@ -1,10 +1,15 @@
+let pristinePieces = null; // Stored pristine layout for restarts
+
 let main = {
 
   variables: {
     turn: 'w',
     selectedpiece: '',
     highlighted: [],
-    lastDoubleStepPawn: '', // Tracks name of the pawn that just double-stepped
+    lastDoubleStepPawn: '', 
+    playerSide: 'w', // 'w' or 'b'
+    history: [], // Stores snapshotted game states
+    historyIndex: -1, // Current active state in history
     pieces: {
       w_king: {
         position: '5_1',
@@ -237,13 +242,121 @@ let main = {
   methods: {
     gamesetup: function() {
       $('.gamecell').attr('chess', 'null');
+      $('.gamecell').html('');
       for (let gamepiece in main.variables.pieces) {
-        $('#' + main.variables.pieces[gamepiece].position).html(main.variables.pieces[gamepiece].img);
-        $('#' + main.variables.pieces[gamepiece].position).attr('chess', gamepiece);
+        if (!main.variables.pieces[gamepiece].captured) {
+          $('#' + main.variables.pieces[gamepiece].position).html(main.variables.pieces[gamepiece].img);
+          $('#' + main.variables.pieces[gamepiece].position).attr('chess', gamepiece);
+        }
       }
     },
 
-    // 1. Get Pseudo-Legal moves: Raw movement possibilities ignoring check rules
+    // Save history snapshot
+    saveHistoryState: function() {
+      // Truncate any redo branch if we moved after backing up
+      if (main.variables.historyIndex < main.variables.history.length - 1) {
+        main.variables.history = main.variables.history.slice(0, main.variables.historyIndex + 1);
+      }
+
+      let snapshot = {
+        pieces: JSON.parse(JSON.stringify(main.variables.pieces)),
+        turn: main.variables.turn,
+        lastDoubleStepPawn: main.variables.lastDoubleStepPawn
+      };
+
+      main.variables.history.push(snapshot);
+      main.variables.historyIndex++;
+      main.methods.updateHistoryButtons();
+    },
+
+    // Update Back & Forward button states
+    updateHistoryButtons: function() {
+      $('#btn-back').prop('disabled', main.variables.historyIndex <= 0);
+      $('#btn-forward').prop('disabled', main.variables.historyIndex >= main.variables.history.length - 1);
+    },
+
+    // Load snapshot at specific history index
+    loadHistoryState: function(index) {
+      if (index < 0 || index >= main.variables.history.length) return;
+      main.variables.historyIndex = index;
+      
+      let state = main.variables.history[index];
+      main.variables.turn = state.turn;
+      main.variables.lastDoubleStepPawn = state.lastDoubleStepPawn;
+      main.variables.pieces = JSON.parse(JSON.stringify(state.pieces));
+      
+      // Reset highlights and re-render board
+      $('.gamecell').html('');
+      $('.gamecell').attr('chess', 'null');
+      $('.gamecell').removeClass('selected-highlight green');
+      main.variables.selectedpiece = '';
+      main.variables.highlighted = [];
+
+      main.methods.gamesetup();
+
+      let turnName = (main.variables.turn === 'w') ? "WHITE'S" : "BLACK'S";
+      $('#turn').html("IT'S " + turnName + " TURN");
+      main.methods.updateHistoryButtons();
+    },
+
+    // Initialize side selection match
+    startMatch: function(side) {
+      main.variables.playerSide = side;
+      if (side === 'b') {
+        $('#game').addClass('flipped');
+      } else {
+        $('#game').removeClass('flipped');
+      }
+      
+      $('#side-select-overlay').fadeOut(300);
+
+      // Re-enable click listener
+      $('.gamecell').off('click').click(main.methods.handleCellClick);
+
+      // Pristine state variables reset
+      main.variables.pieces = JSON.parse(JSON.stringify(pristinePieces));
+      main.variables.turn = 'w';
+      main.variables.selectedpiece = '';
+      main.variables.highlighted = [];
+      main.variables.lastDoubleStepPawn = '';
+      main.variables.history = [];
+      main.variables.historyIndex = -1;
+
+      $('.gamecell').removeClass('selected-highlight green');
+      
+      main.methods.gamesetup();
+      main.methods.saveHistoryState(); // Initial board snapshot
+
+      $('#turn').html("IT'S WHITES TURN");
+      $('#turn').addClass('turnhighlight');
+      window.setTimeout(function(){
+        $('#turn').removeClass('turnhighlight');
+      }, 1500);
+    },
+
+    // Return to choose-side screen
+    restartGame: function() {
+      $('.gamecell').off('click'); // Disable moves during selection
+      
+      main.variables.pieces = JSON.parse(JSON.stringify(pristinePieces));
+      main.variables.turn = 'w';
+      main.variables.selectedpiece = '';
+      main.variables.highlighted = [];
+      main.variables.lastDoubleStepPawn = '';
+      main.variables.history = [];
+      main.variables.historyIndex = -1;
+
+      $('#game').removeClass('flipped');
+      $('.gamecell').removeClass('selected-highlight green');
+      
+      main.methods.gamesetup();
+      main.methods.updateHistoryButtons();
+
+      $('#side-select-overlay').fadeIn(300);
+      $('#turn').html("CHOOSE A SIDE TO START");
+    },
+
+    // Pseudo-legal moves generation
     getPseudoLegalMoves: function(selectedpiece) {
       let position = { x: '', y: '' };
       position.x = main.variables.pieces[selectedpiece].position.split('_')[0];
@@ -306,7 +419,7 @@ let main = {
         case 'b_queen':
           c1 = main.methods.b_options(position,[{x: 1, y: 1},{x: 2, y: 2},{x: 3, y: 3},{x: 4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
           c2 = main.methods.b_options(position,[{x: 1, y: -1},{x: 2, y: -2},{x: 3, y: -3},{x: 4, y: -4},{x: 5, y: -5},{x: 6, y: -6},{x: 7, y: -7}]);
-          c3 = main.methods.b_options(position,[{x: -1, y: 1},{x: -2, y: 2},{x: -3, y: 3},{x: -4, y: 4},{x: -5, y: 5},{x: -6, y: 6},{x: -7, y: 7}]);
+          c3 = main.methods.b_options(position,[{x: -1, y: 1},{x: -2, y: 2},{x: -3, y: 3},{x: -4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
           c4 = main.methods.b_options(position,[{x: -1, y: -1},{x: -2, y: -2},{x: -3, y: -3},{x: -4, y: -4},{x: -5, y: -5},{x: -6, y: -6},{x: -7, y: -7}]);
           c5 = main.methods.b_options(position,[{x: 1, y: 0},{x: 2, y: 0},{x: 3, y: 0},{x: 4, y: 0},{x: 5, y: 0},{x: 6, y: 0},{x: 7, y: 0}]);
           c6 = main.methods.b_options(position,[{x: 0, y: 1},{x: 0, y: 2},{x: 0, y: 3},{x: 0, y: 4},{x: 0, y: 5},{x: 0, y: 6},{x: 0, y: 7}]);
@@ -318,7 +431,7 @@ let main = {
         case 'w_bishop':
           c1 = main.methods.w_options(position,[{x: 1, y: 1},{x: 2, y: 2},{x: 3, y: 3},{x: 4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
           c2 = main.methods.w_options(position,[{x: 1, y: -1},{x: 2, y: -2},{x: 3, y: -3},{x: 4, y: -4},{x: 5, y: -5},{x: 6, y: -6},{x: 7, y: -7}]);
-          c3 = main.methods.w_options(position,[{x: -1, y: 1},{x: -2, y: 2},{x: -3, y: 3},{x: -4, y: 4},{x: -5, y: 5},{x: -6, y: 6},{x: -7, y: 7}]);
+          c3 = main.methods.w_options(position,[{x: -1, y: 1},{x: -2, y: 2},{x: -3, y: 3},{x: -4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
           c4 = main.methods.w_options(position,[{x: -1, y: -1},{x: -2, y: -2},{x: -3, y: -3},{x: -4, y: -4},{x: -5, y: -5},{x: -6, y: -6},{x: -7, y: -7}]);
           options = c1.concat(c2).concat(c3).concat(c4);
           break;
@@ -326,7 +439,7 @@ let main = {
         case 'b_bishop':
           c1 = main.methods.b_options(position,[{x: 1, y: 1},{x: 2, y: 2},{x: 3, y: 3},{x: 4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
           c2 = main.methods.b_options(position,[{x: 1, y: -1},{x: 2, y: -2},{x: 3, y: -3},{x: 4, y: -4},{x: 5, y: -5},{x: 6, y: -6},{x: 7, y: -7}]);
-          c3 = main.methods.b_options(position,[{x: -1, y: 1},{x: -2, y: 2},{x: -3, y: 3},{x: -4, y: 4},{x: -5, y: 5},{x: -6, y: 6},{x: -7, y: 7}]);
+          c3 = main.methods.b_options(position,[{x: -1, y: 1},{x: -2, y: 2},{x: -3, y: 3},{x: -4, y: 4},{x: 5, y: 5},{x: 6, y: 6},{x: 7, y: 7}]);
           c4 = main.methods.b_options(position,[{x: -1, y: -1},{x: -2, y: -2},{x: -3, y: -3},{x: -4, y: -4},{x: -5, y: -5},{x: -6, y: -6},{x: -7, y: -7}]);
           options = c1.concat(c2).concat(c3).concat(c4);
           break;
@@ -403,7 +516,7 @@ let main = {
       return options;
     },
 
-    // 2. Get En Passant captures
+    // Get En Passant captures
     getEnPassantOptions: function(pawnName) {
       let epOptions = [];
       let pawn = main.variables.pieces[pawnName];
@@ -427,7 +540,7 @@ let main = {
           let lx = parseInt(lpos[0]);
           let ly = parseInt(lpos[1]);
 
-          // Must be directly adjacent horizontally
+          // Must be adjacent horizontally
           if (ly === py && Math.abs(lx - px) === 1) {
             epOptions.push(lx + '_' + (py + moveY));
           }
@@ -436,7 +549,7 @@ let main = {
       return epOptions;
     },
 
-    // 3. Attack checkers
+    // Attack checkers
     isKingInCheck: function(color) {
       let kingName = color + '_king';
       let kingPos = main.variables.pieces[kingName].position;
@@ -458,7 +571,7 @@ let main = {
       return false;
     },
 
-    // 4. Generate fully legal moves: Pseudo-legal moves simulated & checked for check safety
+    // Legal moves validator (simulates and checks for check safety)
     getLegalMoves: function(selectedpiece) {
       let pseudoMoves = main.methods.getPseudoLegalMoves(selectedpiece);
       let legalMoves = [];
@@ -527,7 +640,7 @@ let main = {
       return legalMoves;
     },
 
-    // 5. Game Over triggers
+    // Game Over checkers
     checkGameOver: function(color) {
       let totalLegalMoves = 0;
       for (let pieceName in main.variables.pieces) {
@@ -558,7 +671,6 @@ let main = {
         main.methods.togglehighlight(main.variables.highlighted);
       }
 
-      // ONLY show legal moves!
       let options = main.methods.getLegalMoves(selectedpiece);
       main.variables.highlighted = options.slice(0);
       main.methods.togglehighlight(options);
@@ -706,7 +818,7 @@ let main = {
       main.variables.pieces[selectedpiece.name].moved = true;
       main.variables.pieces[target.name].captured = true;
       
-      main.variables.lastDoubleStepPawn = ''; // Clear EP pawn tracking
+      main.variables.lastDoubleStepPawn = ''; // Clear EP tracking
     },
 
     move: function (target) {
@@ -720,7 +832,7 @@ let main = {
 
       let isPawn = main.variables.pieces[selectedpiece].type.endsWith('pawn');
 
-      // Execute en passant capture if pawn moved diagonally to an empty square
+      // Execute en passant capture if pawn moved diagonally to empty square
       if (isPawn && from_x !== to_x) {
         let epPos = to_x + '_' + from_y;
         let epPawnName = $('#' + epPos).attr('chess');
@@ -776,144 +888,181 @@ let main = {
         }, 1500);
       }
 
-      // Trigger Game Over checks
+      // Save snapshots and check checks
+      main.methods.saveHistoryState();
       main.methods.checkGameOver(main.variables.turn);
     },
 
     togglehighlight: function(options) {
       options.forEach(function(element, index, array) {
-        $('#' + element).toggleClass("green shake-little");
+        $('#' + element).toggleClass("green");
       });
+    },
+
+    // Interactive Click Handler
+    handleCellClick: function(e) {
+      let clickedId = this.id;
+
+      var selectedpiece = {
+        name: '',
+        id: main.variables.selectedpiece
+      };
+
+      if (main.variables.selectedpiece == '') {
+        selectedpiece.name = $('#' + clickedId).attr('chess');
+      } else {
+        selectedpiece.name = $('#' + main.variables.selectedpiece).attr('chess');
+      }
+
+      var target = {
+        name: $(this).attr('chess'),
+        id: clickedId
+      };
+
+      // 1. SELECT PIECE
+      if (main.variables.selectedpiece == '' && target.name.slice(0,1) == main.variables.turn) {
+        main.variables.selectedpiece = clickedId;
+        $('#' + clickedId).addClass('selected-highlight');
+        main.methods.moveoptions($(this).attr('chess'));
+
+      // 2. TOGGLE SELECTION TO ANOTHER PIECE
+      } else if (main.variables.selectedpiece != '' && target.name != 'null' && target.id != selectedpiece.id && selectedpiece.name.slice(0,1) == target.name.slice(0,1)) {
+        $('.gamecell').removeClass('selected-highlight');
+        main.methods.togglehighlight(main.variables.highlighted);
+        main.variables.highlighted.length = 0;
+
+        main.variables.selectedpiece = clickedId;
+        $('#' + clickedId).addClass('selected-highlight');
+        main.methods.moveoptions(target.name);
+
+      // 3. MOVE TO EMPTY CELL
+      } else if (main.variables.selectedpiece !='' && target.name == 'null') {
+        if (main.variables.highlighted.indexOf(target.id) != (-1)) {
+          if (selectedpiece.name == 'w_king' || selectedpiece.name == 'b_king') {
+            let t0 = (selectedpiece.name == 'w_king');
+            let t1 = (selectedpiece.name == 'b_king');
+            let t2 = (main.variables.pieces[selectedpiece.name].moved == false);
+            let t3 = (main.variables.pieces['b_rook2'].moved == false);
+            let t4 = (main.variables.pieces['w_rook2'].moved == false);
+            let t5 = (target.id == '7_8');
+            let t6 = (target.id == '7_1');
+      
+            if (t0 && t2 && t4 && t6) { // Castle White
+              let k_position = '5_1';
+              let k_target = '7_1';
+              let r_position = '8_1';
+              let r_target = '6_1';
+      
+              main.variables.pieces['w_king'].position = '7_1';
+              main.variables.pieces['w_king'].moved = true;
+              $('#'+k_position).html('');
+              $('#'+k_position).attr('chess','null');
+              $('#'+k_target).html(main.variables.pieces['w_king'].img);
+              $('#'+k_target).attr('chess','w_king');
+      
+              main.variables.pieces['w_rook2'].position = '6_1';
+              main.variables.pieces['w_rook2'].moved = true;
+              $('#'+r_position).html('');
+              $('#'+r_position).attr('chess','null');
+              $('#'+r_target).html(main.variables.pieces['w_rook2'].img);
+              $('#'+r_target).attr('chess','w_rook2');
+      
+              $('.gamecell').removeClass('selected-highlight');
+              main.methods.endturn();
+      
+            } else if (t1 && t2 && t3 && t5) { // Castle Black
+              let k_position = '5_8';
+              let k_target = '7_8';
+              let r_position = '8_8';
+              let r_target = '6_8';
+      
+              main.variables.pieces['b_king'].position = '7_8';
+              main.variables.pieces['b_king'].moved = true;
+              $('#'+k_position).html('');
+              $('#'+k_position).attr('chess','null');
+              $('#'+k_target).html(main.variables.pieces['b_king'].img);
+              $('#'+k_target).attr('chess','b_king');
+      
+              main.variables.pieces['b_rook2'].position = '6_8';
+              main.variables.pieces['b_rook2'].moved = true;
+              $('#'+r_position).html('');
+              $('#'+r_position).attr('chess','null');
+              $('#'+r_target).html(main.variables.pieces['b_rook2'].img);
+              $('#'+r_target).attr('chess','b_rook2');
+      
+              $('.gamecell').removeClass('selected-highlight');
+              main.methods.endturn();
+              
+            } else { // Normal King move
+              main.methods.move(target);
+              $('.gamecell').removeClass('selected-highlight');
+              main.methods.endturn();
+            }
+          } else { // Normal piece move
+            main.methods.move(target);
+            $('.gamecell').removeClass('selected-highlight');
+            main.methods.endturn();
+          }
+        } else { // Clicked invalid empty -> Deselect
+          $('.gamecell').removeClass('selected-highlight');
+          main.methods.togglehighlight(main.variables.highlighted);
+          main.variables.highlighted.length = 0;
+          main.variables.selectedpiece = '';
+        }
+          
+      // 4. CAPTURE PIECE
+      } else if (main.variables.selectedpiece !='' && target.name != 'null' && target.id != selectedpiece.id && selectedpiece.name.slice(0,1) != target.name.slice(0,1)) {
+        if (selectedpiece.id != target.id && main.variables.highlighted.indexOf(target.id) != (-1)) {
+          main.methods.capture(target);
+          $('.gamecell').removeClass('selected-highlight');
+          main.methods.endturn();
+        } else { // Clicked invalid capture -> Deselect
+          $('.gamecell').removeClass('selected-highlight');
+          main.methods.togglehighlight(main.variables.highlighted);
+          main.variables.highlighted.length = 0;
+          main.variables.selectedpiece = '';
+        }
+      }
     }
   }
 };
 
 $(document).ready(function() {
+  // Store pristine pieces clone for restarts
+  pristinePieces = JSON.parse(JSON.stringify(main.variables.pieces));
+
+  // Render starting board (invisible under selection overlay)
   main.methods.gamesetup();
 
-  $('.gamecell').click(function(e) {
-    let clickedId = this.id; // Correctly get cell ID even on click bubble
+  // Side Selection actions
+  $('#select-white').click(function() {
+    main.methods.startMatch('w');
+  });
 
-    var selectedpiece = {
-      name: '',
-      id: main.variables.selectedpiece
-    };
+  $('#select-black').click(function() {
+    main.methods.startMatch('b');
+  });
 
-    if (main.variables.selectedpiece == '') {
-      selectedpiece.name = $('#' + clickedId).attr('chess');
-    } else {
-      selectedpiece.name = $('#' + main.variables.selectedpiece).attr('chess');
+  $('#select-random').click(function() {
+    let side = (Math.random() < 0.5) ? 'w' : 'b';
+    main.methods.startMatch(side);
+  });
+
+  // History Control actions
+  $('#btn-back').click(function() {
+    if (main.variables.historyIndex > 0) {
+      main.methods.loadHistoryState(main.variables.historyIndex - 1);
     }
+  });
 
-    var target = {
-      name: $(this).attr('chess'),
-      id: clickedId
-    };
-
-    // 1. SELECT PIECE
-    if (main.variables.selectedpiece == '' && target.name.slice(0,1) == main.variables.turn) {
-      main.variables.selectedpiece = clickedId;
-      $('#' + clickedId).addClass('selected-highlight');
-      main.methods.moveoptions($(this).attr('chess'));
-
-    // 2. TOGGLE / SELECT ANOTHER PIECE OF SAME COLOR
-    } else if (main.variables.selectedpiece != '' && target.name != 'null' && target.id != selectedpiece.id && selectedpiece.name.slice(0,1) == target.name.slice(0,1)) {
-      $('.gamecell').removeClass('selected-highlight');
-      main.methods.togglehighlight(main.variables.highlighted);
-      main.variables.highlighted.length = 0;
-
-      main.variables.selectedpiece = clickedId;
-      $('#' + clickedId).addClass('selected-highlight');
-      main.methods.moveoptions(target.name);
-
-    // 3. MOVE TO EMPTY CELL
-    } else if (main.variables.selectedpiece !='' && target.name == 'null') {
-      if (main.variables.highlighted.indexOf(target.id) != (-1)) {
-        if (selectedpiece.name == 'w_king' || selectedpiece.name == 'b_king') {
-          let t0 = (selectedpiece.name == 'w_king');
-          let t1 = (selectedpiece.name == 'b_king');
-          let t2 = (main.variables.pieces[selectedpiece.name].moved == false);
-          let t3 = (main.variables.pieces['b_rook2'].moved == false);
-          let t4 = (main.variables.pieces['w_rook2'].moved == false);
-          let t5 = (target.id == '7_8');
-          let t6 = (target.id == '7_1');
-    
-          if (t0 && t2 && t4 && t6) { // Castle White King
-            let k_position = '5_1';
-            let k_target = '7_1';
-            let r_position = '8_1';
-            let r_target = '6_1';
-    
-            main.variables.pieces['w_king'].position = '7_1';
-            main.variables.pieces['w_king'].moved = true;
-            $('#'+k_position).html('');
-            $('#'+k_position).attr('chess','null');
-            $('#'+k_target).html(main.variables.pieces['w_king'].img);
-            $('#'+k_target).attr('chess','w_king');
-    
-            main.variables.pieces['w_rook2'].position = '6_1';
-            main.variables.pieces['w_rook2'].moved = true;
-            $('#'+r_position).html('');
-            $('#'+r_position).attr('chess','null');
-            $('#'+r_target).html(main.variables.pieces['w_rook2'].img);
-            $('#'+r_target).attr('chess','w_rook2');
-    
-            $('.gamecell').removeClass('selected-highlight');
-            main.methods.endturn();
-    
-          } else if (t1 && t2 && t3 && t5) { // Castle Black King
-            let k_position = '5_8';
-            let k_target = '7_8';
-            let r_position = '8_8';
-            let r_target = '6_8';
-    
-            main.variables.pieces['b_king'].position = '7_8';
-            main.variables.pieces['b_king'].moved = true;
-            $('#'+k_position).html('');
-            $('#'+k_position).attr('chess','null');
-            $('#'+k_target).html(main.variables.pieces['b_king'].img);
-            $('#'+k_target).attr('chess','b_king');
-    
-            main.variables.pieces['b_rook2'].position = '6_8';
-            main.variables.pieces['b_rook2'].moved = true;
-            $('#'+r_position).html('');
-            $('#'+r_position).attr('chess','null');
-            $('#'+r_target).html(main.variables.pieces['b_rook2'].img);
-            $('#'+r_target).attr('chess','b_rook2');
-    
-            $('.gamecell').removeClass('selected-highlight');
-            main.methods.endturn();
-            
-          } else { // Normal King Move
-            main.methods.move(target);
-            $('.gamecell').removeClass('selected-highlight');
-            main.methods.endturn();
-          }
-        } else { // Normal Piece Move
-          main.methods.move(target);
-          $('.gamecell').removeClass('selected-highlight');
-          main.methods.endturn();
-        }
-      } else { // Clicked invalid empty cell -> Deselect
-        $('.gamecell').removeClass('selected-highlight');
-        main.methods.togglehighlight(main.variables.highlighted);
-        main.variables.highlighted.length = 0;
-        main.variables.selectedpiece = '';
-      }
-        
-    // 4. CAPTURE PIECE
-    } else if (main.variables.selectedpiece !='' && target.name != 'null' && target.id != selectedpiece.id && selectedpiece.name.slice(0,1) != target.name.slice(0,1)) {
-      if (selectedpiece.id != target.id && main.variables.highlighted.indexOf(target.id) != (-1)) {
-        main.methods.capture(target);
-        $('.gamecell').removeClass('selected-highlight');
-        main.methods.endturn();
-      } else { // Clicked invalid capture target -> Deselect
-        $('.gamecell').removeClass('selected-highlight');
-        main.methods.togglehighlight(main.variables.highlighted);
-        main.variables.highlighted.length = 0;
-        main.variables.selectedpiece = '';
-      }
+  $('#btn-forward').click(function() {
+    if (main.variables.historyIndex < main.variables.history.length - 1) {
+      main.methods.loadHistoryState(main.variables.historyIndex + 1);
     }
+  });
+
+  $('#btn-restart').click(function() {
+    main.methods.restartGame();
   });
 
   $('body').contextmenu(function(e) {

@@ -93,8 +93,25 @@
     <div class='cellprefix'>f</div>
     <div class='cellprefix'>g</div>
     <div class='cellprefix'>h</div><br>
-    <div id='turn'>It's Whites Turn!</div>
+    
+    <!-- Side Selection Overlay -->
+    <div id="side-select-overlay" class="overlay">
+      <h2>CHOOSE YOUR SIDE</h2>
+      <div class="side-options">
+        <button id="select-white" class="side-btn">WHITE ♔</button>
+        <button id="select-random" class="side-btn">RANDOM 🎲</button>
+        <button id="select-black" class="side-btn">BLACK ♚</button>
+      </div>
+    </div>
   </div>
+
+  <div id="controls">
+    <button id="btn-back" class="control-btn" disabled>◀ BACK</button>
+    <button id="btn-restart" class="control-btn">⟲ RESTART</button>
+    <button id="btn-forward" class="control-btn" disabled>FORWARD ▶</button>
+  </div>
+
+  <div id="turn">CHOOSE A SIDE TO START</div>
 <!-- partial -->
   <script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
   <script  src="./script.js"></script>
