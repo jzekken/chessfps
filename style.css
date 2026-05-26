@@ -370,3 +370,35 @@ div * {
 #btn-defender-counter:hover {
   background: #f87171 !important;
 }
+
+#btn-resign {
+  background: #ef4444 !important;
+  color: #ffffff !important;
+  border-color: #ef4444 !important;
+}
+
+#btn-resign:hover {
+  background: #f87171 !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.4) !important;
+}
+
+.mode-btn {
+  background: #272522 !important;
+  border: 1px solid #474542 !important;
+  color: #bababa !important;
+  font-weight: 500;
+  transition: all 0.25s ease;
+}
+
+.active-mode {
+  background: #769656 !important;
+  border: 1px solid #769656 !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  box-shadow: 0 0 10px rgba(118, 150, 86, 0.35) !important;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 1; }
+}

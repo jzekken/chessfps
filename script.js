@@ -1,4 +1,11 @@
 let pristinePieces = null; // Stored pristine layout for restarts
+let socket = null;
+let currentRoomId = null;
+
+if (typeof io !== 'undefined') {
+  // Connect to live server (change to your deployed Render HTTPS URL when you upload it online)
+  socket = io("http://localhost:3000"); 
+}
 
 let main = {
 
@@ -8,6 +15,7 @@ let main = {
     highlighted: [],
     lastDoubleStepPawn: '', 
     playerSide: 'w', // 'w' or 'b'
+    multiplayerMode: false, // Flag to switch offline/online modes
     history: [], // Stores snapshotted game states
     historyIndex: -1, // Current active state in history
     activeCombat: null, // Stores target combat info during mini-game
@@ -312,6 +320,15 @@ let main = {
       
       $('#side-select-overlay').fadeOut(300);
 
+      // Handle UI controls depending on match type mode
+      if (main.variables.multiplayerMode) {
+        $('#btn-back, #btn-forward, #btn-restart').hide();
+        $('#btn-resign').show().prop('disabled', false);
+      } else {
+        $('#btn-back, #btn-forward, #btn-restart').show();
+        $('#btn-resign').hide();
+      }
+
       // Re-enable click listener
       $('.gamecell').off('click').click(main.methods.handleCellClick);
 
@@ -354,8 +371,35 @@ let main = {
       main.methods.gamesetup();
       main.methods.updateHistoryButtons();
 
+      // Show back & forward controls bar
+      $('#btn-back, #btn-forward, #btn-restart').show();
+      $('#btn-resign').hide();
+
       $('#side-select-overlay').fadeIn(300);
       $('#turn').html("CHOOSE A SIDE TO START");
+    },
+
+    // Resign multiplayer match
+    resignMatch: function(isRelayed) {
+      let opponentColor = (main.variables.playerSide === 'w') ? 'BLACK' : 'WHITE';
+      
+      // If locally initiated, emit event to opponent
+      if (socket && main.variables.multiplayerMode && currentRoomId && !isRelayed) {
+        socket.emit('playerResigned', { roomId: currentRoomId });
+      }
+
+      if (!isRelayed) {
+        alert('You have resigned from the match! ' + opponentColor + ' wins.');
+      } else {
+        alert('Your opponent has resigned! You win!');
+      }
+
+      $('#turn').html('MATCH OVER! ' + opponentColor + ' WINS BY RESIGNATION');
+      $('.gamecell').off('click');
+      $('#btn-resign').prop('disabled', true);
+
+      // Present custom restart button even in multiplayer so they can play again
+      $('#btn-restart').show();
     },
 
     // 1. Synthesize Retro Gunshot Sound
@@ -434,13 +478,24 @@ let main = {
     },
 
     // 4. Start FPS Engagement Mini-game
-    startFPSMiniGame: function(attacker, defender, attackerPos, defenderPos) {
+    startFPSMiniGame: function(attacker, defender, attackerPos, defenderPos, isRelayed) {
       main.variables.activeCombat = {
         attacker: attacker,
         defender: defender,
         attackerPos: attackerPos,
         defenderPos: defenderPos
       };
+
+      // Emit trigger to opponent in multiplayer mode
+      if (socket && main.variables.multiplayerMode && currentRoomId && !isRelayed) {
+        socket.emit('startCombat', {
+          roomId: currentRoomId,
+          attacker: attacker,
+          defender: defender,
+          attackerPos: attackerPos,
+          defenderPos: defenderPos
+        });
+      }
 
       // Set target piece graphic dynamically
       $('#fps-target').attr('chess', defender);
@@ -493,13 +548,21 @@ let main = {
     },
 
     // Resolve Combat Engagement Outcomes
-    resolveCombat: function(success) {
+    resolveCombat: function(success, isRelayed) {
       clearInterval(main.variables.fpsTargetInterval);
       cancelAnimationFrame(main.variables.fpsAnimationId);
 
       let combat = main.variables.activeCombat;
       if (!combat) return;
       main.variables.activeCombat = null;
+
+      // Relays combat outcome to opponent in multiplayer mode
+      if (socket && main.variables.multiplayerMode && currentRoomId && !isRelayed) {
+        socket.emit('resolveCombatSync', {
+          roomId: currentRoomId,
+          success: success
+        });
+      }
 
       $('#fps-overlay').fadeOut(150);
 
@@ -1147,6 +1210,15 @@ let main = {
       // Save snapshots and check checks
       main.methods.saveHistoryState();
       main.methods.checkGameOver(main.variables.turn);
+
+      // Relays board status to opponent in multiplayer mode
+      if (socket && main.variables.multiplayerMode && currentRoomId) {
+        socket.emit('sendMove', {
+          roomId: currentRoomId,
+          pieces: main.variables.pieces,
+          turn: main.variables.turn
+        });
+      }
     },
 
     togglehighlight: function(options) {
@@ -1158,6 +1230,19 @@ let main = {
     // Interactive Click Handler
     handleCellClick: function(e) {
       let clickedId = this.id;
+
+      // If online multiplayer mode is enabled:
+      if (main.variables.multiplayerMode) {
+        // 1. Deny actions if it's not the player's turn
+        if (main.variables.turn !== main.variables.playerSide) {
+          return;
+        }
+        // 2. Deny selecting opponent's pieces
+        let clickedChess = $('#' + clickedId).attr('chess');
+        if (main.variables.selectedpiece == '' && clickedChess !== 'null' && clickedChess.slice(0,1) !== main.variables.playerSide) {
+          return;
+        }
+      }
 
       var selectedpiece = {
         name: '',
@@ -1355,6 +1440,153 @@ $(document).ready(function() {
 
   // Render starting board (invisible under selection overlay)
   main.methods.gamesetup();
+
+  // Match Type actions
+  $('#mode-local').click(function() {
+    $('.mode-btn').removeClass('active-mode');
+    $(this).addClass('active-mode');
+    main.variables.multiplayerMode = false;
+    
+    // UI toggles
+    $('#online-lobby-panel').hide();
+    $('#local-side-select').fadeIn(200);
+  });
+
+  $('#mode-online').click(function() {
+    $('.mode-btn').removeClass('active-mode');
+    $(this).addClass('active-mode');
+    main.variables.multiplayerMode = true;
+
+    // UI toggles
+    $('#local-side-select').hide();
+    $('#online-lobby-panel').fadeIn(200);
+
+    // Reset online lobby panels state
+    $('#btn-host-lobby').show().prop('disabled', false);
+    $('#host-code-display').hide();
+    $('#btn-join-lobby-toggle').show();
+    $('#lobby-divider').show();
+    $('#join-input-display').hide();
+    $('#input-lobby-code').val('');
+    $('#btn-connect-lobby').text('CONNECT & PLAY ⚡').prop('disabled', false);
+  });
+
+  // Resign action
+  $('#btn-resign').click(function() {
+    if (confirm("Are you sure you want to resign?")) {
+      main.methods.resignMatch();
+    }
+  });
+
+  // Host Lobby Event (Live Socket.io with Mock Fallback)
+  $('#btn-host-lobby').click(function() {
+    // Generate random 3-digit lobby code
+    let chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = 'FPS-';
+    for (let i = 0; i < 3; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    
+    $(this).hide();
+    $('#btn-join-lobby-toggle').hide();
+    $('#lobby-divider').hide();
+    
+    $('#lobby-code-val').text(code);
+    $('#host-code-display').fadeIn(200);
+
+    currentRoomId = code;
+
+    if (socket) {
+      // LIVE: Emit hosting event to Node.js server
+      socket.emit('hostRoom', { roomId: code });
+
+      // Wait for server notification that opponent connected
+      socket.off('opponentJoined').on('opponentJoined', function(data) {
+        alert("OPPONENT CONNECTED!\n\nLobby Room: " + code + "\nYou have been assigned WHITE ♔. The match is starting!");
+        main.methods.startMatch('w'); // Host is White
+      });
+    } else {
+      // FALLBACK MOCK: Simulate opponent joining after 4.5 seconds
+      setTimeout(function() {
+        alert("OPPONENT CONNECTED! (Offline Mock Mode)\n\nLobby Room: " + code + "\nYou have been assigned WHITE ♔. The match is starting!");
+        main.methods.startMatch('w');
+      }, 4500);
+    }
+  });
+
+  // Join Toggle
+  $('#btn-join-lobby-toggle').click(function() {
+    $('#join-input-display').fadeToggle(200);
+  });
+
+  // Connect Lobby Event (Live Socket.io with Mock Fallback)
+  $('#btn-connect-lobby').click(function() {
+    let inputVal = $('#input-lobby-code').val().trim().toUpperCase();
+    if (inputVal.length < 4) {
+      alert("Please enter a valid lobby code!");
+      return;
+    }
+
+    $(this).prop('disabled', true).text('CONNECTING...');
+    $('#btn-host-lobby').hide();
+    $('#lobby-divider').hide();
+
+    if (socket) {
+      // LIVE: Emit joining event to Node.js server
+      socket.emit('joinRoom', { roomId: inputVal });
+
+      // Handle successful connection
+      socket.off('joinedSuccessfully').on('joinedSuccessfully', function(data) {
+        currentRoomId = data.roomId;
+        alert("CONNECTED SUCCESSFULLY!\n\nLobby Room: " + data.roomId + "\nYou have been assigned BLACK ♚. The match is starting!");
+        main.methods.startMatch('b'); // Joiner is Black
+      });
+
+      // Handle room not found error
+      socket.off('lobbyNotFound').on('lobbyNotFound', function(data) {
+        alert(data.message);
+        $('#btn-connect-lobby').prop('disabled', false).text('CONNECT & PLAY ⚡');
+        $('#btn-host-lobby').show();
+        $('#lobby-divider').show();
+      });
+    } else {
+      // FALLBACK MOCK: Simulate successfully joining after 2 seconds
+      setTimeout(function() {
+        currentRoomId = inputVal;
+        alert("CONNECTED TO LOBBY: " + inputVal + " (Offline Mock Mode)\n\nYou have been assigned BLACK ♚. The match is starting!");
+        main.methods.startMatch('b');
+      }, 2000);
+    }
+  });
+
+  // Global socket listener bindings for live multiplayer syncing
+  if (socket) {
+    // 1. Sync board layouts and turns
+    socket.on('receiveMove', function(data) {
+      main.variables.pieces = data.pieces;
+      main.variables.turn = data.turn;
+      main.methods.gamesetup();
+      
+      let turnName = (main.variables.turn === 'w') ? "WHITE'S" : "BLACK'S";
+      $('#turn').html("IT'S " + turnName + " TURN");
+      main.methods.updateHistoryButtons();
+    });
+
+    // 2. Trigger combat overlays
+    socket.on('receiveCombatStart', function(data) {
+      main.methods.startFPSMiniGame(data.attacker, data.defender, data.attackerPos, data.defenderPos, true);
+    });
+
+    // 3. Sync combat resolution outcomes
+    socket.on('receiveCombatResolution', function(data) {
+      main.methods.resolveCombat(data.success, true);
+    });
+
+    // 4. Opponent resigned notification
+    socket.on('opponentResigned', function() {
+      main.methods.resignMatch(true); // Opponent resigned
+    });
+  }
 
   // Side Selection actions
   $('#select-white').click(function() {

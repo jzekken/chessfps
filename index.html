@@ -96,11 +96,40 @@
     
     <!-- Side Selection Overlay -->
     <div id="side-select-overlay" class="overlay">
-      <h2>CHOOSE YOUR SIDE</h2>
-      <div class="side-options">
-        <button id="select-white" class="side-btn">WHITE ♔</button>
-        <button id="select-random" class="side-btn">RANDOM 🎲</button>
-        <button id="select-black" class="side-btn">BLACK ♚</button>
+      <h2 style="font-size: 18px; color: #bababa; margin-bottom: 8px;">MATCH TYPE</h2>
+      <div class="side-options" style="margin-bottom: 25px; width: 80%; max-width: 320px; flex-direction: column; gap: 10px;">
+        <button id="mode-local" class="side-btn mode-btn active-mode" style="width: 100%;">LOCAL PASS & PLAY 👥</button>
+        <button id="mode-online" class="side-btn mode-btn" style="width: 100%;">ONLINE MULTIPLAYER 🌐</button>
+      </div>
+
+      <!-- Offline Side Selection Section -->
+      <div id="local-side-select" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+        <h2 style="font-size: 18px; color: #bababa; margin-bottom: 8px;">CHOOSE YOUR SIDE</h2>
+        <div class="side-options">
+          <button id="select-white" class="side-btn">WHITE ♔</button>
+          <button id="select-random" class="side-btn">RANDOM 🎲</button>
+          <button id="select-black" class="side-btn">BLACK ♚</button>
+        </div>
+      </div>
+
+      <!-- Online Lobby Panel (Socket.io UI Hooks) -->
+      <div id="online-lobby-panel" style="display: none; width: 80%; max-width: 320px; flex-direction: column; gap: 12px; align-items: center; margin-top: 10px;">
+        <button id="btn-host-lobby" class="side-btn" style="width: 100%;">HOST NEW LOBBY 🏠</button>
+        
+        <div id="host-code-display" style="display: none; text-align: center; color: #eeeed2; font-family: 'Space Grotesk', sans-serif; margin-bottom: 10px;">
+          <p style="font-size: 13px; color: #bababa; margin-bottom: 4px;">YOUR LOBBY CODE</p>
+          <h1 id="lobby-code-val" style="font-size: 26px; color: #769656; letter-spacing: 2px; font-weight: 700; margin: 0 0 10px 0;">CODE</h1>
+          <p style="font-size: 11px; color: #797672; animation: blink 1.5s infinite;">WAITING FOR OPPONENT TO CONNECT...</p>
+        </div>
+
+        <div id="lobby-divider" style="width: 100%; height: 1px; background: #3d3b38; margin: 8px 0;"></div>
+
+        <button id="btn-join-lobby-toggle" class="side-btn" style="width: 100%; background: #272522; border: 1px solid #474542;">JOIN EXISTING LOBBY 🔌</button>
+        
+        <div id="join-input-display" style="display: none; width: 100%; flex-direction: column; gap: 10px; align-items: center;">
+          <input type="text" id="input-lobby-code" placeholder="ENTER 6-DIGIT CODE" style="width: 100%; padding: 12px; background: #1e1c1a; border: 1px solid #474542; color: #eeeed2; font-family: 'Space Grotesk', sans-serif; font-size: 14px; font-weight: 700; text-align: center; border-radius: 4px; letter-spacing: 1px; text-transform: uppercase;" />
+          <button id="btn-connect-lobby" class="side-btn" style="width: 100%; background: #769656;">CONNECT & PLAY ⚡</button>
+        </div>
       </div>
     </div>
 
@@ -130,6 +159,7 @@
   <div id="controls">
     <button id="btn-back" class="control-btn" disabled>◀ BACK</button>
     <button id="btn-restart" class="control-btn">⟲ RESTART</button>
+    <button id="btn-resign" class="control-btn" style="display: none;">🏳️ RESIGN</button>
     <button id="btn-forward" class="control-btn" disabled>FORWARD ▶</button>
   </div>
 
