@@ -587,6 +587,17 @@ let main = {
         });
       }
 
+      // If in multiplayer and we are NOT the attacker, we just wait for the outcome!
+      if (main.variables.multiplayerMode) {
+        let attackerColor = attacker.charAt(0);
+        if (main.variables.playerSide !== attackerColor) {
+          // We are the defender: do not show the FPS minigame overlay. Just show the status warning.
+          let defendingPieceName = main.variables.pieces[defender].type.split('_')[1].toUpperCase();
+          $('#turn').html("⚠️ OPPONENT IS ATTACKING YOUR " + defendingPieceName + "! 🎯");
+          return;
+        }
+      }
+
       // Set target piece graphic dynamically
       $('#fps-target').attr('chess', defender);
 
