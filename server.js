@@ -14,7 +14,10 @@ const io = require('socket.io')(http, {
 app.get('/', (req, res) => {
   res.send('Chess FPS Server is Running Live!');
 });
-
+// ADD THIS HEALTH CHECK ENDPOINT
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
 // Real-time communication gateway
 io.on('connection', (socket) => {
   console.log('A player connected:', socket.id);
