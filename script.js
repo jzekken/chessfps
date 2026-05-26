@@ -527,37 +527,82 @@ let main = {
         }
         
         main.variables.lastDoubleStepPawn = ''; // Clear EP pawn tracking
+
+        // Re-bind grid click events
+        $('.gamecell').off('click').click(main.methods.handleCellClick);
+        main.variables.selectedpiece = '';
+        main.variables.highlighted = [];
+
+        // Check if King was captured
+        if (main.variables.pieces['w_king'].captured) {
+          $('#turn').html('COMBAT CAPTURE! BLACK WINS!');
+          alert('White King captured in combat! Black wins.');
+          $('.gamecell').off('click');
+          return;
+        }
+        if (main.variables.pieces['b_king'].captured) {
+          $('#turn').html('COMBAT CAPTURE! WHITE WINS!');
+          alert('Black King captured in combat! White wins.');
+          $('.gamecell').off('click');
+          return;
+        }
+
+        // Conclude turn and snapshot state
+        main.methods.endturn();
+
       } else {
         // Failure: Attacker gets eaten by defender!
         main.methods.playFailureSound();
-        alert('ATTACK FAILED! Your piece got captured in combat.');
         
         main.variables.pieces[combat.attacker].captured = true;
         $('#' + combat.attackerPos).html('');
         $('#' + combat.attackerPos).attr('chess', 'null');
-      }
 
-      // Re-bind grid click events
-      $('.gamecell').off('click').click(main.methods.handleCellClick);
-      main.variables.selectedpiece = '';
-      main.variables.highlighted = [];
+        let defenderCurrentPos = main.variables.pieces[combat.defender].position;
 
-      // Check if King was captured
-      if (main.variables.pieces['w_king'].captured) {
-        $('#turn').html('COMBAT CAPTURE! BLACK WINS!');
-        alert('White King captured in combat! Black wins.');
-        $('.gamecell').off('click');
-        return;
-      }
-      if (main.variables.pieces['b_king'].captured) {
-        $('#turn').html('COMBAT CAPTURE! WHITE WINS!');
-        alert('Black King captured in combat! White wins.');
-        $('.gamecell').off('click');
-        return;
-      }
+        // Open custom Defender Choice Overlay
+        $('#btn-defender-stay').off('click').click(function() {
+          $('#defender-choice-overlay').fadeOut(150);
+          main.methods.endturn();
+        });
 
-      // Conclude turn and snapshot state
-      main.methods.endturn();
+        $('#btn-defender-counter').off('click').click(function() {
+          // Move the defender to the attacker's original position
+          $('#' + defenderCurrentPos).html('');
+          $('#' + defenderCurrentPos).attr('chess', 'null');
+
+          $('#' + combat.attackerPos).html(main.variables.pieces[combat.defender].img);
+          $('#' + combat.attackerPos).attr('chess', combat.defender);
+
+          main.variables.pieces[combat.defender].position = combat.attackerPos;
+          main.variables.pieces[combat.defender].moved = true;
+
+          $('#defender-choice-overlay').fadeOut(150);
+          main.methods.endturn();
+        });
+
+        // Re-bind grid click events
+        $('.gamecell').off('click').click(main.methods.handleCellClick);
+        main.variables.selectedpiece = '';
+        main.variables.highlighted = [];
+
+        // Check if King was captured
+        if (main.variables.pieces['w_king'].captured) {
+          $('#turn').html('COMBAT CAPTURE! BLACK WINS!');
+          alert('White King captured in combat! Black wins.');
+          $('.gamecell').off('click');
+          return;
+        }
+        if (main.variables.pieces['b_king'].captured) {
+          $('#turn').html('COMBAT CAPTURE! WHITE WINS!');
+          alert('Black King captured in combat! White wins.');
+          $('.gamecell').off('click');
+          return;
+        }
+
+        // Show choice overlay
+        $('#defender-choice-overlay').fadeIn(150);
+      }
     },
 
     // Pseudo-legal moves generation
@@ -820,6 +865,7 @@ let main = {
 
       // Check castling legality manually to prevent infinite recursion
       if (main.variables.pieces[selectedpiece].type === 'w_king') {
+        // King-side (Short) Castle White
         if ($('#6_1').attr('chess') == 'null' && $('#7_1').attr('chess') == 'null' && 
             main.variables.pieces['w_king'].moved == false && 
             main.variables.pieces['w_rook2'].moved == false &&
@@ -828,7 +874,17 @@ let main = {
             !main.methods.isSquareUnderAttack('7_1', 'b')) {
           legalMoves.push('7_1');
         }
+        // Queen-side (Long) Castle White
+        if ($('#2_1').attr('chess') == 'null' && $('#3_1').attr('chess') == 'null' && $('#4_1').attr('chess') == 'null' &&
+            main.variables.pieces['w_king'].moved == false && 
+            main.variables.pieces['w_rook1'].moved == false &&
+            !main.methods.isKingInCheck('w') &&
+            !main.methods.isSquareUnderAttack('4_1', 'b') &&
+            !main.methods.isSquareUnderAttack('3_1', 'b')) {
+          legalMoves.push('3_1');
+        }
       } else if (main.variables.pieces[selectedpiece].type === 'b_king') {
+        // King-side (Short) Castle Black
         if ($('#6_8').attr('chess') == 'null' && $('#7_8').attr('chess') == 'null' && 
             main.variables.pieces['b_king'].moved == false && 
             main.variables.pieces['b_rook2'].moved == false &&
@@ -836,6 +892,15 @@ let main = {
             !main.methods.isSquareUnderAttack('6_8', 'w') &&
             !main.methods.isSquareUnderAttack('7_8', 'w')) {
           legalMoves.push('7_8');
+        }
+        // Queen-side (Long) Castle Black
+        if ($('#2_8').attr('chess') == 'null' && $('#3_8').attr('chess') == 'null' && $('#4_8').attr('chess') == 'null' &&
+            main.variables.pieces['b_king'].moved == false && 
+            main.variables.pieces['b_rook1'].moved == false &&
+            !main.methods.isKingInCheck('b') &&
+            !main.methods.isSquareUnderAttack('4_8', 'w') &&
+            !main.methods.isSquareUnderAttack('3_8', 'w')) {
+          legalMoves.push('3_8');
         }
       }
 
@@ -1146,15 +1211,13 @@ let main = {
               target.id
             );
           } else if (selectedpiece.name == 'w_king' || selectedpiece.name == 'b_king') {
-            let t0 = (selectedpiece.name == 'w_king');
-            let t1 = (selectedpiece.name == 'b_king');
-            let t2 = (main.variables.pieces[selectedpiece.name].moved == false);
-            let t3 = (main.variables.pieces['b_rook2'].moved == false);
-            let t4 = (main.variables.pieces['w_rook2'].moved == false);
-            let t5 = (target.id == '7_8');
-            let t6 = (target.id == '7_1');
+            let isWhiteKing = (selectedpiece.name == 'w_king');
+            let isBlackKing = (selectedpiece.name == 'b_king');
+            let kingUnmoved = (main.variables.pieces[selectedpiece.name].moved == false);
+            let rook1Unmoved = isWhiteKing ? (main.variables.pieces['w_rook1'].moved == false) : (isBlackKing ? (main.variables.pieces['b_rook1'].moved == false) : false);
+            let rook2Unmoved = isWhiteKing ? (main.variables.pieces['w_rook2'].moved == false) : (isBlackKing ? (main.variables.pieces['b_rook2'].moved == false) : false);
       
-            if (t0 && t2 && t4 && t6) { // Castle White
+            if (isWhiteKing && kingUnmoved && rook2Unmoved && target.id == '7_1') { // Castle White Short
               let k_position = '5_1';
               let k_target = '7_1';
               let r_position = '8_1';
@@ -1177,7 +1240,30 @@ let main = {
               $('.gamecell').removeClass('selected-highlight');
               main.methods.endturn();
       
-            } else if (t1 && t2 && t3 && t5) { // Castle Black
+            } else if (isWhiteKing && kingUnmoved && rook1Unmoved && target.id == '3_1') { // Castle White Long
+              let k_position = '5_1';
+              let k_target = '3_1';
+              let r_position = '1_1';
+              let r_target = '4_1';
+      
+              main.variables.pieces['w_king'].position = '3_1';
+              main.variables.pieces['w_king'].moved = true;
+              $('#'+k_position).html('');
+              $('#'+k_position).attr('chess','null');
+              $('#'+k_target).html(main.variables.pieces['w_king'].img);
+              $('#'+k_target).attr('chess','w_king');
+      
+              main.variables.pieces['w_rook1'].position = '4_1';
+              main.variables.pieces['w_rook1'].moved = true;
+              $('#'+r_position).html('');
+              $('#'+r_position).attr('chess','null');
+              $('#'+r_target).html(main.variables.pieces['w_rook1'].img);
+              $('#'+r_target).attr('chess','w_rook1');
+      
+              $('.gamecell').removeClass('selected-highlight');
+              main.methods.endturn();
+      
+            } else if (isBlackKing && kingUnmoved && rook2Unmoved && target.id == '7_8') { // Castle Black Short
               let k_position = '5_8';
               let k_target = '7_8';
               let r_position = '8_8';
@@ -1196,6 +1282,29 @@ let main = {
               $('#'+r_position).attr('chess','null');
               $('#'+r_target).html(main.variables.pieces['b_rook2'].img);
               $('#'+r_target).attr('chess','b_rook2');
+      
+              $('.gamecell').removeClass('selected-highlight');
+              main.methods.endturn();
+              
+            } else if (isBlackKing && kingUnmoved && rook1Unmoved && target.id == '3_8') { // Castle Black Long
+              let k_position = '5_8';
+              let k_target = '3_8';
+              let r_position = '1_8';
+              let r_target = '4_8';
+      
+              main.variables.pieces['b_king'].position = '3_8';
+              main.variables.pieces['b_king'].moved = true;
+              $('#'+k_position).html('');
+              $('#'+k_position).attr('chess','null');
+              $('#'+k_target).html(main.variables.pieces['b_king'].img);
+              $('#'+k_target).attr('chess','b_king');
+      
+              main.variables.pieces['b_rook1'].position = '4_8';
+              main.variables.pieces['b_rook1'].moved = true;
+              $('#'+r_position).html('');
+              $('#'+r_position).attr('chess','null');
+              $('#'+r_target).html(main.variables.pieces['b_rook1'].img);
+              $('#'+r_target).attr('chess','b_rook1');
       
               $('.gamecell').removeClass('selected-highlight');
               main.methods.endturn();

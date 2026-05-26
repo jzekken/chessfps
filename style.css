@@ -362,3 +362,11 @@ div * {
 .shake-little {
   animation: none !important;
 }
+
+#btn-defender-counter {
+  background: #ef4444;
+}
+
+#btn-defender-counter:hover {
+  background: #f87171 !important;
+}
