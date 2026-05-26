@@ -315,19 +315,19 @@ div * {
 }
 
 /* SVG Piece mappings (Wikipedia clean vectors) - Shared with Target Drones */
-.gamecell[chess^="w_pawn"], .target-piece[chess^="w_pawn"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg'); }
-.gamecell[chess^="w_rook"], .target-piece[chess^="w_rook"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg'); }
-.gamecell[chess^="w_knight"], .target-piece[chess^="w_knight"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg'); }
-.gamecell[chess^="w_bishop"], .target-piece[chess^="w_bishop"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg'); }
-.gamecell[chess^="w_queen"], .target-piece[chess^="w_queen"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg'); }
-.gamecell[chess^="w_king"], .target-piece[chess^="w_king"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg'); }
+.gamecell[piece-type="w_pawn"], .target-piece[chess^="w_pawn"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/45/Chess_plt45.svg'); }
+.gamecell[piece-type="w_rook"], .target-piece[chess^="w_rook"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/7/72/Chess_rlt45.svg'); }
+.gamecell[piece-type="w_knight"], .target-piece[chess^="w_knight"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/7/70/Chess_nlt45.svg'); }
+.gamecell[piece-type="w_bishop"], .target-piece[chess^="w_bishop"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/b/b1/Chess_blt45.svg'); }
+.gamecell[piece-type="w_queen"], .target-piece[chess^="w_queen"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/1/15/Chess_qlt45.svg'); }
+.gamecell[piece-type="w_king"], .target-piece[chess^="w_king"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/42/Chess_klt45.svg'); }
 
-.gamecell[chess^="b_pawn"], .target-piece[chess^="b_pawn"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg'); }
-.gamecell[chess^="b_rook"], .target-piece[chess^="b_rook"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg'); }
-.gamecell[chess^="b_knight"], .target-piece[chess^="b_knight"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg'); }
-.gamecell[chess^="b_bishop"], .target-piece[chess^="b_bishop"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg'); }
-.gamecell[chess^="b_queen"], .target-piece[chess^="b_queen"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg'); }
-.gamecell[chess^="b_king"], .target-piece[chess^="b_king"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg'); }
+.gamecell[piece-type="b_pawn"], .target-piece[chess^="b_pawn"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/c/c7/Chess_pdt45.svg'); }
+.gamecell[piece-type="b_rook"], .target-piece[chess^="b_rook"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/ff/Chess_rdt45.svg'); }
+.gamecell[piece-type="b_knight"], .target-piece[chess^="b_knight"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/e/ef/Chess_ndt45.svg'); }
+.gamecell[piece-type="b_bishop"], .target-piece[chess^="b_bishop"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/9/98/Chess_bdt45.svg'); }
+.gamecell[piece-type="b_queen"], .target-piece[chess^="b_queen"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/4/47/Chess_qdt45.svg'); }
+.gamecell[piece-type="b_king"], .target-piece[chess^="b_king"] { background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/f0/Chess_kdt45.svg'); }
 
 /* Clean Classic Status Turn Banner */
 #turn {
@@ -401,4 +401,9 @@ div * {
 @keyframes blink {
   0%, 100% { opacity: 0.35; }
   50% { opacity: 1; }
+}
+
+.checked-highlight {
+  background-color: rgba(239, 68, 68, 0.55) !important;
+  box-shadow: inset 0 0 15px rgba(239, 68, 68, 0.8) !important;
 }

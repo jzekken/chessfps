@@ -253,13 +253,103 @@ let main = {
   methods: {
     gamesetup: function() {
       $('.gamecell').attr('chess', 'null');
+      $('.gamecell').attr('piece-type', 'null');
+      $('.gamecell').removeClass('checked-highlight');
       $('.gamecell').html('');
       for (let gamepiece in main.variables.pieces) {
         if (!main.variables.pieces[gamepiece].captured) {
-          $('#' + main.variables.pieces[gamepiece].position).html(main.variables.pieces[gamepiece].img);
-          $('#' + main.variables.pieces[gamepiece].position).attr('chess', gamepiece);
+          let pos = main.variables.pieces[gamepiece].position;
+          $('#' + pos).html(main.variables.pieces[gamepiece].img);
+          $('#' + pos).attr('chess', gamepiece);
+          $('#' + pos).attr('piece-type', main.variables.pieces[gamepiece].type);
         }
       }
+
+      // Highlight checked kings safely
+      if (main.methods.isKingInCheck) {
+        if (!main.variables.pieces['w_king'].captured && main.methods.isKingInCheck('w')) {
+          let pos = main.variables.pieces['w_king'].position;
+          $('#' + pos).addClass('checked-highlight');
+        }
+        if (!main.variables.pieces['b_king'].captured && main.methods.isKingInCheck('b')) {
+          let pos = main.variables.pieces['b_king'].position;
+          $('#' + pos).addClass('checked-highlight');
+        }
+      }
+    },
+
+    // Verify and execute Pawn Promotions with piece selection overlay
+    checkPawnPromotion: function(pieceName, onComplete) {
+      let piece = main.variables.pieces[pieceName];
+      if (piece && piece.type.endsWith('pawn')) {
+        let y = parseInt(piece.position.split('_')[1]);
+        let color = piece.type.slice(0, 1);
+        if ((color === 'w' && y === 8) || (color === 'b' && y === 1)) {
+          
+          // In multiplayer, check if this is the opponent's pawn promoting.
+          // The opponent's screen will wait for the socket sync move packet.
+          if (main.variables.multiplayerMode && main.variables.playerSide !== color) {
+            $('#turn').html((color === 'w' ? 'WHITE' : 'BLACK') + ' IS PROMOTING A PAWN...');
+            return true;
+          }
+
+          // Show promotion choice overlay
+          $('#promotion-overlay').fadeIn(150);
+          $('.gamecell').off('click'); // Temporarily disable cell clicks
+
+          let piecesMap = {
+            'queen': { type: color + '_queen', img: '&#9819;' },
+            'rook': { type: color + '_rook', img: '&#9820;' },
+            'bishop': { type: color + '_bishop', img: '&#9821;' },
+            'knight': { type: color + '_knight', img: '&#9822;' }
+          };
+
+          // Re-bind overlay buttons
+          $('#promote-queen').off('click').click(function() {
+            piece.type = piecesMap['queen'].type;
+            piece.img = piecesMap['queen'].img;
+            $('#promotion-overlay').fadeOut(150);
+            $('.gamecell').off('click').click(main.methods.handleCellClick);
+            onComplete();
+          });
+
+          $('#promote-rook').off('click').click(function() {
+            piece.type = piecesMap['rook'].type;
+            piece.img = piecesMap['rook'].img;
+            $('#promotion-overlay').fadeOut(150);
+            $('.gamecell').off('click').click(main.methods.handleCellClick);
+            onComplete();
+          });
+
+          $('#promote-bishop').off('click').click(function() {
+            piece.type = piecesMap['bishop'].type;
+            piece.img = piecesMap['bishop'].img;
+            $('#promotion-overlay').fadeOut(150);
+            $('.gamecell').off('click').click(main.methods.handleCellClick);
+            onComplete();
+          });
+
+          $('#promote-knight').off('click').click(function() {
+            piece.type = piecesMap['knight'].type;
+            piece.img = piecesMap['knight'].img;
+            $('#promotion-overlay').fadeOut(150);
+            $('.gamecell').off('click').click(main.methods.handleCellClick);
+            onComplete();
+          });
+
+          return true;
+        }
+      }
+      return false;
+    },
+
+    // Premium Game Over overlay trigger
+    triggerGameOver: function(message) {
+      $('#game-over-desc').text(message);
+      $('.gamecell').off('click');
+      $('#fps-overlay').hide();
+      $('#defender-choice-overlay').hide();
+      $('#game-over-overlay').fadeIn(150);
     },
 
     // Save history snapshot
@@ -389,9 +479,9 @@ let main = {
       }
 
       if (!isRelayed) {
-        alert('You have resigned from the match! ' + opponentColor + ' wins.');
+        main.methods.triggerGameOver('You have resigned from the match! ' + opponentColor + ' wins.');
       } else {
-        alert('Your opponent has resigned! You win!');
+        main.methods.triggerGameOver('Your opponent has resigned! You win!');
       }
 
       $('#turn').html('MATCH OVER! ' + opponentColor + ' WINS BY RESIGNATION');
@@ -599,19 +689,19 @@ let main = {
         // Check if King was captured
         if (main.variables.pieces['w_king'].captured) {
           $('#turn').html('COMBAT CAPTURE! BLACK WINS!');
-          alert('White King captured in combat! Black wins.');
-          $('.gamecell').off('click');
+          main.methods.triggerGameOver('White King was captured in combat! Black wins.');
           return;
         }
         if (main.variables.pieces['b_king'].captured) {
           $('#turn').html('COMBAT CAPTURE! WHITE WINS!');
-          alert('Black King captured in combat! White wins.');
-          $('.gamecell').off('click');
+          main.methods.triggerGameOver('Black King was captured in combat! White wins.');
           return;
         }
 
-        // Conclude turn and snapshot state
-        main.methods.endturn();
+        // Pawn promotion check
+        if (!main.methods.checkPawnPromotion(combat.attacker, main.methods.endturn)) {
+          main.methods.endturn();
+        }
 
       } else {
         // Failure: Attacker gets eaten by defender!
@@ -623,27 +713,6 @@ let main = {
 
         let defenderCurrentPos = main.variables.pieces[combat.defender].position;
 
-        // Open custom Defender Choice Overlay
-        $('#btn-defender-stay').off('click').click(function() {
-          $('#defender-choice-overlay').fadeOut(150);
-          main.methods.endturn();
-        });
-
-        $('#btn-defender-counter').off('click').click(function() {
-          // Move the defender to the attacker's original position
-          $('#' + defenderCurrentPos).html('');
-          $('#' + defenderCurrentPos).attr('chess', 'null');
-
-          $('#' + combat.attackerPos).html(main.variables.pieces[combat.defender].img);
-          $('#' + combat.attackerPos).attr('chess', combat.defender);
-
-          main.variables.pieces[combat.defender].position = combat.attackerPos;
-          main.variables.pieces[combat.defender].moved = true;
-
-          $('#defender-choice-overlay').fadeOut(150);
-          main.methods.endturn();
-        });
-
         // Re-bind grid click events
         $('.gamecell').off('click').click(main.methods.handleCellClick);
         main.variables.selectedpiece = '';
@@ -652,19 +721,80 @@ let main = {
         // Check if King was captured
         if (main.variables.pieces['w_king'].captured) {
           $('#turn').html('COMBAT CAPTURE! BLACK WINS!');
-          alert('White King captured in combat! Black wins.');
-          $('.gamecell').off('click');
+          main.methods.triggerGameOver('White King was captured in combat! Black wins.');
           return;
         }
         if (main.variables.pieces['b_king'].captured) {
           $('#turn').html('COMBAT CAPTURE! WHITE WINS!');
-          alert('Black King captured in combat! White wins.');
-          $('.gamecell').off('click');
+          main.methods.triggerGameOver('Black King was captured in combat! White wins.');
           return;
         }
 
-        // Show choice overlay
-        $('#defender-choice-overlay').fadeIn(150);
+        // Show defender choice overlay based on multiplayer / side
+        if (main.variables.multiplayerMode) {
+          let defenderColor = combat.defender.charAt(0);
+          if (main.variables.playerSide === defenderColor) {
+            // We are the defender: bind click handlers and show the choice overlay
+            $('#btn-defender-stay').off('click').click(function() {
+              $('#defender-choice-overlay').fadeOut(150);
+              main.methods.endturn();
+            });
+
+            $('#btn-defender-counter').off('click').click(function() {
+              // Move the defender to the attacker's original position
+              $('#' + defenderCurrentPos).html('');
+              $('#' + defenderCurrentPos).attr('chess', 'null');
+
+              $('#' + combat.attackerPos).html(main.variables.pieces[combat.defender].img);
+              $('#' + combat.attackerPos).attr('chess', combat.defender);
+
+              main.variables.pieces[combat.defender].position = combat.attackerPos;
+              main.variables.pieces[combat.defender].moved = true;
+
+              if (!main.methods.checkPawnPromotion(combat.defender, function() {
+                $('#defender-choice-overlay').fadeOut(150);
+                main.methods.endturn();
+              })) {
+                $('#defender-choice-overlay').fadeOut(150);
+                main.methods.endturn();
+              }
+            });
+
+            $('#defender-choice-overlay').fadeIn(150);
+          } else {
+            // We are the attacker: we just wait for defender's decision
+            $('#turn').html("ATTACK FAILED! Waiting for defender's counter...");
+            // Do not show overlay
+          }
+        } else {
+          // Local Pass & Play mode: show overlay for the player sitting at the screen
+          $('#btn-defender-stay').off('click').click(function() {
+            $('#defender-choice-overlay').fadeOut(150);
+            main.methods.endturn();
+          });
+
+          $('#btn-defender-counter').off('click').click(function() {
+            // Move the defender to the attacker's original position
+            $('#' + defenderCurrentPos).html('');
+            $('#' + defenderCurrentPos).attr('chess', 'null');
+
+            $('#' + combat.attackerPos).html(main.variables.pieces[combat.defender].img);
+            $('#' + combat.attackerPos).attr('chess', combat.defender);
+
+            main.variables.pieces[combat.defender].position = combat.attackerPos;
+            main.variables.pieces[combat.defender].moved = true;
+
+            if (!main.methods.checkPawnPromotion(combat.defender, function() {
+              $('#defender-choice-overlay').fadeOut(150);
+              main.methods.endturn();
+            })) {
+              $('#defender-choice-overlay').fadeOut(150);
+              main.methods.endturn();
+            }
+          });
+
+          $('#defender-choice-overlay').fadeIn(150);
+        }
       }
     },
 
@@ -986,11 +1116,11 @@ let main = {
           let winner = (color === 'w') ? 'Black' : 'White';
           $('#turn').html('CHECKMATE! ' + winner.toUpperCase() + ' WINS!');
           $('#turn').addClass('turnhighlight');
-          alert('Checkmate! ' + winner + ' wins the game.');
+          main.methods.triggerGameOver('Checkmate! ' + winner + ' wins the game.');
         } else {
           $('#turn').html('DRAW! STALEMATE!');
           $('#turn').addClass('turnhighlight');
-          alert('Draw! Stalemate.');
+          main.methods.triggerGameOver('Draw! Stalemate.');
         }
         $('.gamecell').off('click'); // Disable interactions
       }
@@ -1177,6 +1307,7 @@ let main = {
 
       main.variables.pieces[selectedpiece].position = target.id;
       main.variables.pieces[selectedpiece].moved = true;
+
     },
 
     endturn: function(){
@@ -1209,6 +1340,7 @@ let main = {
 
       // Save snapshots and check checks
       main.methods.saveHistoryState();
+      main.methods.gamesetup();
       main.methods.checkGameOver(main.variables.turn);
 
       // Relays board status to opponent in multiplayer mode
@@ -1397,12 +1529,16 @@ let main = {
             } else { // Normal King move
               main.methods.move(target);
               $('.gamecell').removeClass('selected-highlight');
-              main.methods.endturn();
+              if (!main.methods.checkPawnPromotion(selectedpiece.name, main.methods.endturn)) {
+                main.methods.endturn();
+              }
             }
           } else { // Normal piece move
             main.methods.move(target);
             $('.gamecell').removeClass('selected-highlight');
-            main.methods.endturn();
+            if (!main.methods.checkPawnPromotion(selectedpiece.name, main.methods.endturn)) {
+              main.methods.endturn();
+            }
           }
         } else { // Clicked invalid empty -> Deselect
           $('.gamecell').removeClass('selected-highlight');
@@ -1616,6 +1752,11 @@ $(document).ready(function() {
   });
 
   $('#btn-restart').click(function() {
+    main.methods.restartGame();
+  });
+
+  $('#btn-game-over-ok').click(function() {
+    $('#game-over-overlay').fadeOut(150);
     main.methods.restartGame();
   });
 

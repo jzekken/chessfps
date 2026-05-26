@@ -154,6 +154,25 @@
         <button id="btn-defender-counter" class="side-btn" style="width: 100%;">COUNTER: TAKE ATTACKER'S SQUARE ⚔️</button>
       </div>
     </div>
+
+    <!-- Pawn Promotion Overlay -->
+    <div id="promotion-overlay" class="overlay" style="display: none;">
+      <h2 style="color: #eeeed2; text-shadow: 0 0 10px rgba(238, 238, 210, 0.4);">PROMOTE PAWN</h2>
+      <p style="color: #bababa; font-family: 'Outfit', sans-serif; font-size: 14px; margin-bottom: 20px; text-align: center; max-width: 80%;">Choose a piece to promote your pawn to:</p>
+      <div class="side-options" style="width: 80%; max-width: 320px; flex-direction: column; gap: 10px;">
+        <button id="promote-queen" class="side-btn" style="width: 100%;">QUEEN 👑</button>
+        <button id="promote-rook" class="side-btn" style="width: 100%;">ROOK 🏰</button>
+        <button id="promote-bishop" class="side-btn" style="width: 100%;">BISHOP 🎯</button>
+        <button id="promote-knight" class="side-btn" style="width: 100%;">KNIGHT ♞</button>
+      </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="game-over-overlay" class="overlay" style="display: none;">
+      <h2 style="color: #ef4444; text-shadow: 0 0 10px rgba(239, 68, 68, 0.4);">GAME OVER</h2>
+      <p id="game-over-desc" style="color: #bababa; font-family: 'Outfit', sans-serif; font-size: 15px; margin-bottom: 25px; text-align: center; max-width: 80%;">Match is over!</p>
+      <button id="btn-game-over-ok" class="side-btn" style="width: 80%; max-width: 240px; background: #769656;">PLAY AGAIN ⟲</button>
+    </div>
   </div>
 
   <div id="controls">
