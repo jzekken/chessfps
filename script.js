@@ -4,7 +4,7 @@ let currentRoomId = null;
 
 if (typeof io !== 'undefined') {
   // Connect to live server (change to your deployed Render HTTPS URL when you upload it online)
-  socket = io("http://localhost:3000"); 
+  socket = io("https://chess-fps-server.onrender.com"); 
 }
 
 let main = {
